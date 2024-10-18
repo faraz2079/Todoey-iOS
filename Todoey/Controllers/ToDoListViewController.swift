@@ -1,21 +1,19 @@
 import UIKit
+import CoreData
 
 class ToDoListViewController: UITableViewController {
-
-    var itemArray = [Item]()
     
-    let defaults = UserDefaults.standard //interface to user's default data base and data gets saved like a key-value pair
+    var itemArray = [Item]()
+    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        var newItem = Item()
-        newItem.title = "Find Mike"
-        itemArray.append(newItem)
+        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
+            
+        loadItems()
         
-        if let items = defaults.array(forKey: "ToDoListArray") as? [Item] {
-            itemArray = items
-        }
     }
     
     //MARK: - Tableview DataSource Methods
@@ -39,12 +37,21 @@ class ToDoListViewController: UITableViewController {
     //MARK: - Tableview Delegate Methods
 
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-//        print(itemArray[indexPath.row])
 
+        // It is important to first delete the data from the CoreData and then from the local Array(itemArray)
+        // Delete in CRUD
+//        context.delete(itemArray[indexPath.row])
+//        itemArray.remove(at: indexPath.row)
+        
+        
+        //this can read the task as completed after it gets checked
+        //itemArray[indexPath.row].setValue("Completed", forKey: "title")
+        
+        //Update in CRUD
         itemArray[indexPath.row].done = !itemArray[indexPath.row].done //if it gets clicked, this condition will be triggered
         
-        tableView.reloadData()
-        
+        saveItems()
+                
         tableView.deselectRow(at: indexPath, animated: true)
     }
     
@@ -59,14 +66,17 @@ class ToDoListViewController: UITableViewController {
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
             //what will happen once the user clicks the add Item Button on our UIAlert
             
-            var newItem = Item()
+            //Create in CRUD
+            let newItem = Item(context: self.context)
             newItem.title = textField.text!
+            newItem.done = false //for every single item we add to the table view
             self.itemArray.append(newItem)
             
-            self.defaults.set(self.itemArray, forKey: "ToDoListArray")
+            self.saveItems()
             
             self.tableView.reloadData()
         }
+        
         
         alert.addTextField { (alertTextField) in
             alertTextField.placeholder = "Create new item"
@@ -77,5 +87,28 @@ class ToDoListViewController: UITableViewController {
         
         present(alert, animated: true, completion: nil)
     }
+    
+    //MARK: - Model Manupulation Methods
+
+    func saveItems() { //encoding
+        do {
+            try context.save()
+        } catch {
+            print("error saving context \(error)")
+        }
+        self.tableView.reloadData()
+    }
+    
+    //Read in CRUD
+    func loadItems() {
+        let request : NSFetchRequest<Item> = Item.fetchRequest()
+        do {
+            itemArray = try context.fetch(request)
+        } catch {
+            print("error fetching data from the context \(error)")
+        }
+    }
 }
+
+
 
